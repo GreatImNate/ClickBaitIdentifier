@@ -13,8 +13,9 @@ class ClickBaitIdentifier:
     def setInput(self,title):
         self.input_vector = title.split()
 
-    def setWeight(self,lst):
-        self.weight_vector = lst
+    def setWeight(self):
+        for i in range(len(self.input_vector)):
+            self.weight_vector.append(self.word_weight[self.input_vector[i]])
     
     def calcWeights(self):
         total = 0
@@ -33,7 +34,8 @@ class ClickBaitIdentifier:
         return (1.0 + math.erf((x-mean)/(stddev*math.sqrt(2))))/2
     
     def sigmoid(self,z):
-        return 1/(1+math.exp(-z))
+        return math.tanh(z)
+        #return 1/(1+math.exp(-z))
     
     #End Functions
     
@@ -93,7 +95,11 @@ class ClickBaitIdentifier:
         The presence of a buzzword will increase the likelyhood of the Neuron outputting a trigger value.
         Will also make a list of words that passed the buzzword threshold so their weights can be changed more
         """
-        pass
+        total = 0.0
+        for i in range(len(self.input_vector)):
+            total += self.weight_vector[i]
+            
+        return total/len(self.input_vector)
 
     def numberNeuron(self):
         """
@@ -103,10 +109,15 @@ class ClickBaitIdentifier:
         pass
 
     def punctuationNeuron(self):
+        """
+        Question marks and hash tags will set this neuron off
+        """
         pass
 
     """Both write and import dictionary will be used for persistant storage so that the program can be closed and reopened without loss of progress"""
     def writeToDict(self):
+        f.open('dictionary.txt','w')
+        f.close('dictionary.txt')
         pass
     
     def importDict(self):
