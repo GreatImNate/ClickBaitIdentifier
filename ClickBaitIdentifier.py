@@ -8,8 +8,23 @@ class ClickBaitIdentifier:
         self.input_vector = []
         self.weight_vector = []
         self.word_weight = {}
-        
+        self.numeric_weight = 0.0
+        self.punc_weight = 0.0
+        self.learning_rate = 0.05
 
+    #Used to re initialize the dictionary, and all the numeric weights to what they where previously
+    def reInit(self):
+        pass
+
+    def clean(self):
+        pass
+        
+    def setNumericWeight(self):
+        self.numeric_weight = self.cdfNormal(r.random())
+        
+    def setPuncWeight(self):
+        self.punc_weight = self.cdfNormal(r.random())
+        
     def setInput(self,title):
         self.input_vector = title.split()
 
@@ -30,7 +45,7 @@ class ClickBaitIdentifier:
     def normalDist(self,u_mean,stddev,x):
         return (1/(stddev*math.sqrt(2*math.pi)))*math.exp(-(x-u_mean)**2/(2*stddev**2))
 
-    def cdfNormal(self,mean,stddev,x):
+    def cdfNormal(self,x,mean = .5,stddev = 1):
         return (1.0 + math.erf((x-mean)/(stddev*math.sqrt(2))))/2
     
     def sigmoid(self,z):
@@ -39,7 +54,7 @@ class ClickBaitIdentifier:
     
     #End Functions
     
-    def firstDerivative(self,x,*func):
+    def firstDerivative(self,x,func):
         #f(x+h) - f(x-h)/2h
         #For testing purposes I am only passing a value and hard coding the formula
         h = math.sqrt(sys.float_info.epsilon)
@@ -52,11 +67,11 @@ class ClickBaitIdentifier:
         """
         for i in range(len(self.input_vector)):
             
-            print("Enter loop -- word : {}".format(self.input_vector[i]))
+            #print("Enter loop -- word : {}".format(self.input_vector[i]))
                   
             if not(self.input_vector[i] in self.word_weight):
-                print("Is not in dictionary")
-                self.addToDict(self.input_vector[i],self.cdfNormal(.5,1,r.random()))
+                #print("Is not in dictionary")
+                self.addToDict(self.input_vector[i],self.cdfNormal(r.random()))
                 
     
     
@@ -69,15 +84,20 @@ class ClickBaitIdentifier:
         """
         This is just the base testing method to see if an article is clickbait
         """
-        pass
+        self.isSeen()
+        self.setWeight()
+        self.setNumericWeight()
+        self.setPuncWeight()
+        self.isClickbait()
+        
 
-    def adjustWeight(self):
-        pass
+    def adjustWeight(self,shift):
+        for i in range(len(self.weight_vector)):
+            self.weight_vector[i] = self.weight_vector[i] + shift
     
     def train(self):
         """
         Training will read from a file (train.txt) that will contain a list of titles with an accompanied boolean, true or false
-        
         """
         pass
 
@@ -87,7 +107,10 @@ class ClickBaitIdentifier:
         If it is above a certain level it will output true, it is clickbait, and 
 
         """
-        pass
+        total = 0.0
+        total = self.buzzwordNeuron() + self.numberNeuron() + self.punctuationNeuron()
+        #if(
+        return total
 
     def buzzwordNeuron(self):
         """
@@ -106,30 +129,45 @@ class ClickBaitIdentifier:
         Clickbait titles tend to have a number in their title indicating the article is a list
         Having numbers will not be a major trigger since many real news stories have numbers, but clickbait seem to have numbers more frequently
         """
-        pass
+        count = 0
+        for i in range(len(self.input_vector)):
+            if self.input_vector[i].isnumeric():
+                count += 1
+        if (count >= 1):
+            return self.numeric_weight
+        else:
+            return 0
+                
+            
+
 
     def punctuationNeuron(self):
         """
         Question marks and hash tags will set this neuron off
         """
-        pass
+        for i in range(len(self.input_vector)):
+            if('#' in self.input_vector) or ('?' in self.input_vector):
+                return self.punc_weight
+            else:
+                return 0.0
 
-    """Both write and import dictionary will be used for persistant storage so that the program can be closed and reopened without loss of progress"""
+        
+    """Both write and import dictionary will be used for persistant storage so that the program can be closed and reopened without loss of progress
+        The first line will be the numeric constants numeric weight, and the learning rate
+    """
     def writeToDict(self):
         f.open('dictionary.txt','w')
         f.close('dictionary.txt')
         pass
     
     def importDict(self):
+        f.open('dictionary.txt','r')
+        f.close('dictionary.txt')
+        
         pass
 
     
     def __main__(self):
-        a = [5,3,9]
-        b = [1,4,7]
-        setInput(a)
-        setWeight(b)
-        print(calcWeights())
-
+        pass
 
     
