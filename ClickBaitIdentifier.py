@@ -1,5 +1,6 @@
 import sys
 import math
+import re
 import random as r
 
 class ClickBaitIdentifier:
@@ -10,13 +11,15 @@ class ClickBaitIdentifier:
         self.word_weight = {}
         self.numeric_weight = 0.0
         self.punc_weight = 0.0
-        self.learning_rate = 0.05
+        self.learning_rate = 0.25
 
     #Used to re initialize the dictionary, and all the numeric weights to what they where previously
     def reInit(self):
         pass
 
     def clean(self):
+        del self.weight_vector[:]
+        del self.input_vector[:]
         pass
         
     def setNumericWeight(self):
@@ -30,7 +33,7 @@ class ClickBaitIdentifier:
 
     def setWeight(self):
         for i in range(len(self.input_vector)):
-            self.weight_vector.append(self.word_weight[self.input_vector[i]])
+            self.weight_vector.append(self.word_weight[self.input_vector[i].lower()])
     
     def calcWeights(self):
         total = 0
@@ -39,13 +42,11 @@ class ClickBaitIdentifier:
         return
 
     #Functions to be used
-    def xSquared(self,x = 0):
-        return x**2
 
     def normalDist(self,u_mean,stddev,x):
         return (1/(stddev*math.sqrt(2*math.pi)))*math.exp(-(x-u_mean)**2/(2*stddev**2))
 
-    def cdfNormal(self,x,mean = .5,stddev = 1):
+    def cdfNormal(self,x,mean = .5,stddev = 5):
         return (1.0 + math.erf((x-mean)/(stddev*math.sqrt(2))))/2
     
     def sigmoid(self,z):
@@ -65,13 +66,14 @@ class ClickBaitIdentifier:
         Tests to see if the word in the title has bee seen before
         If it has not then it will be added to the dictionary with a random weight based off of the CDF of the Normal distribution
         """
+        pattern = re.compile('[\W_]+') #This will be incorporated possibly to cut out repeats in the dictionary just because a word had some character attached
         for i in range(len(self.input_vector)):
             
             #print("Enter loop -- word : {}".format(self.input_vector[i]))
                   
             if not(self.input_vector[i] in self.word_weight):
                 #print("Is not in dictionary")
-                self.addToDict(self.input_vector[i],self.cdfNormal(r.random()))
+                self.addToDict(self.input_vector[i].lower(),self.cdfNormal(r.random()))
                 
     
     
@@ -84,11 +86,16 @@ class ClickBaitIdentifier:
         """
         This is just the base testing method to see if an article is clickbait
         """
+        
         self.isSeen()
         self.setWeight()
         self.setNumericWeight()
         self.setPuncWeight()
-        self.isClickbait()
+        weighted_sum = self.isClickbait()
+        if (weighted_sum > 1.0):
+            return True
+        else:
+            return False
         
 
     def adjustWeight(self,shift):
@@ -99,7 +106,49 @@ class ClickBaitIdentifier:
         """
         Training will read from a file (train.txt) that will contain a list of titles with an accompanied boolean, true or false
         """
-        pass
+        self.setPuncWeight()
+        self.setNumericWeight()
+        print("Opening File")
+        with open('train.txt') as f:
+            print("Beginning File")
+            triggered = False
+            for line in f:
+                print("Reading line")
+                if(line == "True\n") or (line == 'True'):
+                    print("the line readas true!")
+                    shift = self.firstDerivative(self.isClickbait(),self.sigmoid) * self.learning_rate
+                    
+                    if(triggered == True):
+                        print("it is clickbait - increasing values")
+                        #self.adjustWeight(shift)
+                        for i in range(len(self.input_vector)):
+                            print("adjusting weight value for key {} - previous value was {}".format(self.input_vector[i],self.weight_vector[i]))
+                            self.weight_vector[i] = self.weight_vector[i] + shift
+                            self.word_weight[self.input_vector[i].lower()] = self.weight_vector[i]
+                            print("adjusted weight value for key {} - is now {}".format(self.input_vector[i],self.weight_vector[i]))
+                        triggered = False
+                        self.clean()
+                        
+                    else:
+                        self.adjustWeight(-shift)
+                        print("not clickbait - decrementing values")
+                        for i in range(len(self.input_vector)):
+                            self.word_weight[self.input_vector[i].lower()] = self.weight_vector[i]
+
+                        self.clean()
+                        
+                else:
+                    print(line)
+                    self.setInput(str(line))
+                    print("Determining if clickbait ... " )
+                    truth = self.isClickbait()
+                    print("summed total of all neurons is {}".format(truth))
+                    if(truth > .40):
+                        print("Title is clickbait!")
+                        triggered = True
+                    
+                    
+        
 
     def isClickbait(self):
         """
@@ -107,9 +156,9 @@ class ClickBaitIdentifier:
         If it is above a certain level it will output true, it is clickbait, and 
 
         """
-        total = 0.0
+        self.isSeen()
+        self.setWeight()
         total = self.buzzwordNeuron() + self.numberNeuron() + self.punctuationNeuron()
-        #if(
         return total
 
     def buzzwordNeuron(self):
@@ -119,15 +168,24 @@ class ClickBaitIdentifier:
         Will also make a list of words that passed the buzzword threshold so their weights can be changed more
         """
         total = 0.0
+        """
+        Count the number of words that are above a certain threshold and keep a list of these words
+        The count will be used as a modifier when being considered for how high of a value a is passed from neuron
+        The list of repeated words will be stored, and when it comes time to modify the weights of these words they will recieve a higher weight change
+        The idea behind this is that the more a word appears, the more and more likely it is a buzzword
+        """
         for i in range(len(self.input_vector)):
             total += self.weight_vector[i]
             
-        return total/len(self.input_vector)
+        return total /len(self.input_vector)
 
     def numberNeuron(self):
         """
         Clickbait titles tend to have a number in their title indicating the article is a list
         Having numbers will not be a major trigger since many real news stories have numbers, but clickbait seem to have numbers more frequently
+        Have a dynamic range for the values that are more likely to come up in a clickbait article
+        by default will be from 10 to 30, if there are any values outside of this range it will expand the range slightly
+        If a number in the title lies in the range, then a modifier will be passed to indicate higher probability that it is clickbait
         """
         count = 0
         for i in range(len(self.input_vector)):
