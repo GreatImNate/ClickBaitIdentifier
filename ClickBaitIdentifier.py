@@ -11,7 +11,7 @@ class ClickBaitIdentifier:
         self.word_weight = {}
         self.numeric_weight = 0.0
         self.punc_weight = 0.0
-        self.learning_rate = 0.25
+        self.learning_rate = 0.1
 
     #Used to re initialize the dictionary, and all the numeric weights to what they where previously
     def reInit(self):
@@ -29,11 +29,15 @@ class ClickBaitIdentifier:
         self.punc_weight = self.cdfNormal(r.random())
         
     def setInput(self,title):
-        self.input_vector = title.split()
+        temp = title.lower()
+        self.input_vector = temp.split()
 
     def setWeight(self):
         for i in range(len(self.input_vector)):
-            self.weight_vector.append(self.word_weight[self.input_vector[i].lower()])
+            self.weight_vector.append(self.word_weight[self.input_vector[i]])
+            if(self.input_vector[i].lower() == 'this'):
+                print("weight of this being set with weight {}".format(self.word_weight['this']))
+                
     
     def calcWeights(self):
         total = 0
@@ -71,9 +75,9 @@ class ClickBaitIdentifier:
             
             #print("Enter loop -- word : {}".format(self.input_vector[i]))
                   
-            if not(self.input_vector[i] in self.word_weight):
+            if not(self.input_vector[i].lower() in self.word_weight):
                 #print("Is not in dictionary")
-                self.addToDict(self.input_vector[i].lower(),self.cdfNormal(r.random()))
+                self.addToDict(self.input_vector[i],self.cdfNormal(r.random()))
                 
     
     
@@ -100,7 +104,7 @@ class ClickBaitIdentifier:
 
     def adjustWeight(self,shift):
         for i in range(len(self.weight_vector)):
-            self.weight_vector[i] = self.weight_vector[i] + shift
+            self.weight_vector[i] = (self.weight_vector[i] + (shift))
     
     def train(self):
         """
@@ -115,35 +119,50 @@ class ClickBaitIdentifier:
             for line in f:
                 print("Reading line")
                 if(line == "True\n") or (line == 'True'):
-                    print("the line readas true!")
+                    #print("the line readas true!")
                     shift = self.firstDerivative(self.isClickbait(),self.sigmoid) * self.learning_rate
                     
                     if(triggered == True):
-                        print("it is clickbait - increasing values")
+                        #print("Correctly Identified - adjusting values")
                         #self.adjustWeight(shift)
                         for i in range(len(self.input_vector)):
-                            print("adjusting weight value for key {} - previous value was {}".format(self.input_vector[i],self.weight_vector[i]))
+                            if(self.input_vector[i] == 'this'):
+                                print("found this - weight {}".format(self.word_weight['this']))
+                                print(shift)
+                            #print("adjusting weight value for key {} - previous value was {}".format(self.input_vector[i],self.weight_vector[i]))
                             self.weight_vector[i] = self.weight_vector[i] + shift
+                            if(self.input_vector[i] == 'this'):
+                                print("Weight stored in vector for this position {} :: {}".format(i,self.weight_vector[i]))
                             self.word_weight[self.input_vector[i].lower()] = self.weight_vector[i]
-                            print("adjusted weight value for key {} - is now {}".format(self.input_vector[i],self.weight_vector[i]))
+                            if(self.input_vector[i] == 'this'):
+                                print("adjusted value now stored in dict {}".format(self.word_weight[self.input_vector[i].lower()]))                                
+                            #print("adjusted weight value for key {} - is now {}".format(self.input_vector[i],self.weight_vector[i]))
                         triggered = False
                         self.clean()
                         
                     else:
-                        self.adjustWeight(-shift)
-                        print("not clickbait - decrementing values")
                         for i in range(len(self.input_vector)):
+                            if(self.input_vector[i].lower() == 'this'):
+                                print("found this - weight {}".format(self.word_weight['this']))
+                                print(shift)
+                            #print("adjusting weight value for key {} - previous value was {}".format(self.input_vector[i],self.weight_vector[i]))
+                            self.weight_vector[i] = self.weight_vector[i] + shift
+                            if(self.input_vector[i] == 'this'):
+                                print("Weight stored in vector for this position {} :: {}".format(i,self.weight_vector[i]))
                             self.word_weight[self.input_vector[i].lower()] = self.weight_vector[i]
-
+                            if(self.input_vector[i] == 'this'):
+                                print("adjusted value now stored in dict {}".format(self.word_weight[self.input_vector[i]]))                                
+                            #print("adjusted weight value for key {} - is now {}".format(self.input_vector[i],self.weight_vector[i]))
+                        triggered = False
                         self.clean()
                         
                 else:
                     print(line)
                     self.setInput(str(line))
-                    print("Determining if clickbait ... " )
+                    #print("Determining if clickbait ... " )
                     truth = self.isClickbait()
-                    print("summed total of all neurons is {}".format(truth))
-                    if(truth > .40):
+                    #print("summed total of all neurons is {}".format(truth))
+                    if(truth > .50):
                         print("Title is clickbait!")
                         triggered = True
                     
@@ -190,9 +209,10 @@ class ClickBaitIdentifier:
         count = 0
         for i in range(len(self.input_vector)):
             if self.input_vector[i].isnumeric():
+                #print("Exists number in title")
                 count += 1
         if (count >= 1):
-            return self.numeric_weight
+            return self.numeric_weight/len(self.input_vector)
         else:
             return 0
                 
@@ -203,11 +223,12 @@ class ClickBaitIdentifier:
         """
         Question marks and hash tags will set this neuron off
         """
+        total = 0.0
         for i in range(len(self.input_vector)):
-            if('#' in self.input_vector) or ('?' in self.input_vector):
-                return self.punc_weight
-            else:
-                return 0.0
+            if('#' in self.input_vector[i]) or ('?' in self.input_vector[i]):
+                #print("punctuation found")
+                total = self.punc_weight/len(self.input_vector)
+        return total
 
         
     """Both write and import dictionary will be used for persistant storage so that the program can be closed and reopened without loss of progress
